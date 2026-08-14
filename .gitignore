@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+# Deterministic cache: persist() rebuilds every row from data/raw_prices.csv on
+# each run, so the DB carries no information the CSV does not. Committing it
+# would just churn a binary.
+observatory.db
+observatory.db-journal
+data/raw_prices.csv.bak-*

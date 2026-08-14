@@ -1,0 +1,63 @@
+# Weekly rebuild of the published page.
+#
+# Saturday 06:00 UTC: the Friday bar is closed and settled by then, and
+# fetch_prices.py drops any week still in progress, so a run here always
+# publishes complete weekly bars.
+#
+# The stress suite runs BEFORE anything is published and the job fails if it
+# does not pass. A rotation chart that renders while quietly saying something
+# untrue is the failure mode this whole project has been built against, so a
+# broken engine must not reach the site.
+name: refresh
+
+on:
+  schedule:
+    - cron: "0 6 * * 6"
+  workflow_dispatch: {}      # lets you rebuild on demand from the Actions tab
+
+permissions:
+  contents: write            # needed to commit the regenerated page
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch prices
+        run: python fetch_prices.py --years 5
+
+      - name: Build report
+        run: python observatory.py
+
+      - name: Stress the engine (blocks publish on failure)
+        run: python stress_observatory.py
+
+      - name: Stage the published page
+        run: |
+          mkdir -p public
+          cp report.html public/index.html
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/index.html data/raw_prices.csv
+          if git diff --staged --quiet; then
+            echo "no change — nothing to publish"
+          else
+            git commit -m "weekly refresh: $(date -u +%Y-%m-%d)"
+            git push
+          fi

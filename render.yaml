@@ -1,0 +1,25 @@
+# Render Blueprint — publishes the Rotation Observatory as a STATIC site.
+# On Render: New + → "Blueprint" → connect this repo → it reads this file.
+#
+# Static sites are free and are not the same service type as the Takibimde web
+# service, so this adds no instance cost. There is deliberately NO build step:
+# public/index.html is committed already, so Render only has to serve files. That
+# keeps Python out of Render's build image entirely and means the page that ships
+# is byte-for-byte the one verified locally.
+#
+# The weekly refresh happens in GitHub Actions (.github/workflows/refresh.yml),
+# which regenerates the page and pushes; Render auto-deploys on that push. Doing
+# it that way avoids a Render Cron Job, which is a paid service type.
+services:
+  - type: web
+    name: rotation-observatory
+    runtime: static
+    staticPublishPath: ./public
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff

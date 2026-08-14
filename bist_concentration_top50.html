@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BIST Concentration — Top 10 of Top 50</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 24px auto;
+         max-width: 1100px; background: #fafafa; color: #1a1a1a; }
+  h1 { font-size: 22px; margin-bottom: 2px; }
+  .sub { color: #777; font-size: 13px; margin-bottom: 22px; }
+  .card { background: #fff; border: 1px solid #e3e3e3; border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 20px; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .note { font-size: 12px; color: #999; margin-top: 8px; }
+  .big { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
+  .big small { font-size: 14px; color: #888; font-weight: 400; letter-spacing: 0; }
+  .strip-wrap { overflow-x: auto; padding-bottom: 6px; }
+  table.strip { border-collapse: separate; border-spacing: 7px 5px;
+         font-size: 11px; table-layout: fixed; }
+  table.strip td, table.strip th { padding: 0; text-align: center; }
+  table.strip td { width: 58px; }
+  table.strip th.rank { width: 22px; text-align: right; padding-right: 6px;
+         color: #999; font-weight: 600; white-space: nowrap; }
+  .cell { width: 58px; height: 24px; line-height: 24px; font-size: 11px;
+          font-weight: 600; color: #3a3a3a; border-radius: 5px; overflow: hidden; }
+  .mlab { font-size: 11px; color: #777; white-space: nowrap; padding-top: 4px;
+          font-weight: 600; }
+  .legend span { display: inline-block; margin-right: 12px; font-size: 11px;
+          margin-top: 4px; white-space: nowrap; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+         margin-right: 4px; vertical-align: middle; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; color: #2f6a4f;
+         background: #e6f2ec; border: 1px solid #bfe0cf; border-radius: 5px;
+         padding: 2px 8px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<h1>Borsa İstanbul — Top 10 as a Share of the Top 50</h1>
+<div class="sub">Free-float market cap of the 10 largest &divide; the 50 largest, recomputed each
+  month &middot; survivorship-robust variant &middot; as of <span id="asof"></span></div>
+
+<div class="card">
+  <span class="badge">Fixed top-50 denominator — comparable across the whole 10y window</span>
+  <h2>Top-10-of-top-50 concentration</h2>
+  <div class="big" id="latest"></div>
+  <div style="height:300px; position:relative; margin-top:10px"><canvas id="line"></canvas></div>
+  <div class="note">Both lines are cross-sectional each month by free-float market cap. <b>Blue</b> =
+    top 10 &divide; top 50 (constant footing). <b>Grey dashed</b> = top 10 &divide; <i>all</i> members.
+    They nearly coincide in 2016–19 — when only ~65 names are observable, the top 50 is ~99% of visible
+    cap — and separate to ~7pp by 2025 as the small-cap tail (ranks 51–100) fills in. <b>That gap is the
+    tail's weight, not survivorship.</b> Note the blue line still peaks near 62% in 2016–19 and eases to
+    ~55%: fixing the denominator did <i>not</i> erase the early peak, so that concentration was largely
+    real — not a denominator-size artifact.</div>
+</div>
+
+<div class="card">
+  <h2>Who sat in the top 10</h2>
+  <div class="note" style="margin-top:0">Two snapshots a year (January &amp; end of H1); rows are
+    rank 1 (top) to 10. Colour = company. The banks &rarr; defence/aviation/industrials shift is
+    the story.</div>
+  <div class="strip-wrap"><table class="strip" id="strip"></table></div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="card">
+  <h2>Method &amp; caveats</h2>
+  <div class="note" style="margin-top:0; line-height:1.6">
+    <b>Weighting basis:</b> free-float market cap (İş Yatırım <code>HAO_PD</code>), the basis BIST
+    index-weights on — not full market cap.<br>
+    <b>Fixed top-50 denominator (the point of this variant):</b> the denominator is the 50 largest
+    members each date, not "all available members". Over 10y the observable universe grows from
+    ~65 to 100 (today's XU100 applied historically), and a variable-size denominator mechanically
+    inflates the top-10 share in the thin early years. A constant top-50 puts every date on identical
+    footing, so the trend is comparable end-to-end.<br>
+    <b>Why 50, not 65 (the min universe):</b> the top 50 keeps a ~15-name bench in the worst year.
+    When a name that truly belonged in the top 50 is one of the survivorship-missing tickers, its slot
+    is filled by the next survivor down — <i>substitution</i> (small, second-order error) rather than
+    <i>omission</i> (large, first-order). At N=65 the bench is zero and omission bias returns exactly
+    where it hurts. Residual denominator error is bounded, one-sided, and decays to ~0 by ~2021.<br>
+    <b>Numerator is essentially exact in every year:</b> 2016's top-10 names (GARAN, AKBNK, ISCTR,
+    TUPRS, THYAO, EREGL, KCHOL…) are all still in today's list — megacaps persist, so the top of the
+    distribution is fully observed across the window.<br>
+    <b>What the empirics actually showed (correcting the prior story):</b> fixing the denominator at
+    top-50 did <i>not</i> flatten the early peak — W50 still reads ~62% in 2016–19. So that early
+    concentration was <b>largely real</b>, not a survivorship/denominator-size artifact, as first
+    feared. The extra steepness of the old "% of total" chart (which fell from ~61% to ~48%) is mostly
+    the small-cap <b>tail growing</b> — more listings and the 2021–22 retail episode diluting the
+    total — not core de-concentration. Within the core, the fade is milder: ~62% → ~55%.<br>
+    <b>Where the real survivorship bias sits:</b> in the ~35 names missing from 2016 (a tail we cannot
+    observe). It pushes the old of-total reading <i>up</i> in early years, but it is <b>not</b> the blue–grey
+    gap on the chart. Backing it out: true 2016 of-total ≈ W50 × ρ_recent ≈ 0.62 × 0.88 ≈ <b>55%</b>,
+    versus the naive 61% — i.e. the old chart's 2016 point was ~6pp too high.<br>
+    <b>Definitional caveat (not error):</b> W50 is blind to ranks 51–100 (~12% of total cap today). Read
+    it as concentration <i>within the large/mid-cap core</i>. Level note: W50 = W(of-total) / ρ, ρ ≈ 0.88
+    today, so the same object reads a few points higher here (latest 55% vs 48%).<br>
+    <b>Deferred:</b> earnings-share version (TMS-29 inflation accounting break); full-cap toggle; HHI;
+    banks-vs-rest split.
+  </div>
+</div>
+
+<script>
+const D = {"asof": "2026-07-21", "months": ["2016-07-29", "2016-08-31", "2016-09-30", "2016-10-31", "2016-11-30", "2016-12-30", "2017-01-31", "2017-02-28", "2017-03-31", "2017-04-28", "2017-05-31", "2017-06-30", "2017-07-31", "2017-08-31", "2017-09-29", "2017-10-31", "2017-11-30", "2017-12-29", "2018-01-31", "2018-02-28", "2018-03-30", "2018-04-30", "2018-05-31", "2018-06-29", "2018-07-31", "2018-08-31", "2018-09-28", "2018-10-31", "2018-11-30", "2018-12-31", "2019-01-31", "2019-02-28", "2019-03-29", "2019-04-30", "2019-05-31", "2019-06-28", "2019-07-31", "2019-08-29", "2019-09-30", "2019-10-31", "2019-11-29", "2019-12-31", "2020-01-31", "2020-02-28", "2020-03-31", "2020-04-30", "2020-05-29", "2020-06-30", "2020-07-30", "2020-08-31", "2020-09-30", "2020-10-30", "2020-11-30", "2020-12-31", "2021-01-29", "2021-02-26", "2021-03-31", "2021-04-30", "2021-05-31", "2021-06-30", "2021-07-30", "2021-08-31", "2021-09-30", "2021-10-28", "2021-11-30", "2021-12-31", "2022-01-31", "2022-02-28", "2022-03-31", "2022-04-29", "2022-05-31", "2022-06-30", "2022-07-29", "2022-08-31", "2022-09-30", "2022-10-31", "2022-11-30", "2022-12-30", "2023-01-31", "2023-02-28", "2023-03-31", "2023-04-28", "2023-05-31", "2023-06-27", "2023-07-31", "2023-08-31", "2023-09-29", "2023-10-31", "2023-11-30", "2023-12-29", "2024-01-31", "2024-02-29", "2024-03-29", "2024-04-30", "2024-05-31", "2024-06-28", "2024-07-31", "2024-08-29", "2024-09-30", "2024-10-31", "2024-11-29", "2024-12-31", "2025-01-31", "2025-02-28", "2025-03-28", "2025-04-30", "2025-05-30", "2025-06-30", "2025-07-31", "2025-08-29", "2025-09-30", "2025-10-31", "2025-11-28", "2025-12-31", "2026-01-30", "2026-02-27", "2026-03-31", "2026-04-30", "2026-05-26", "2026-06-30", "2026-07-21"], "weights": [62.19, 61.52, 61.56, 61.9, 62.28, 62.17, 62.58, 63.09, 63.06, 63.32, 63.07, 62.71, 62.55, 62.81, 62.71, 63.04, 63.32, 62.59, 63.0, 62.95, 61.51, 61.06, 61.37, 59.8, 60.73, 60.28, 62.08, 62.51, 62.59, 61.94, 62.18, 62.07, 62.64, 62.35, 62.16, 62.01, 63.32, 61.89, 63.04, 61.9, 61.79, 60.95, 59.64, 58.02, 59.56, 58.45, 57.8, 56.69, 55.08, 55.44, 55.13, 54.18, 53.78, 53.97, 51.82, 50.98, 51.05, 51.46, 52.01, 52.89, 53.24, 53.84, 52.68, 52.55, 52.27, 52.7, 52.54, 54.78, 54.05, 54.43, 54.03, 52.92, 51.7, 52.88, 51.31, 53.2, 51.5, 49.32, 51.18, 51.54, 51.2, 51.61, 51.07, 51.91, 51.59, 50.57, 51.12, 50.47, 52.1, 53.69, 53.92, 52.25, 54.84, 56.29, 56.74, 55.6, 55.5, 56.09, 56.41, 55.22, 55.37, 55.02, 56.64, 56.78, 54.19, 54.36, 55.15, 55.92, 56.41, 54.82, 56.05, 54.45, 53.12, 53.7, 55.3, 53.36, 54.92, 55.87, 54.68, 55.8, 55.06], "weights_of_total": [61.65, 60.99, 60.99, 61.33, 61.69, 61.56, 61.97, 62.47, 62.47, 62.75, 62.47, 62.02, 61.82, 62.06, 61.92, 62.23, 62.51, 61.8, 62.19, 61.94, 60.48, 60.01, 60.32, 58.74, 59.64, 59.28, 61.13, 61.57, 61.65, 60.92, 61.15, 61.01, 61.59, 61.29, 61.14, 60.99, 62.27, 60.74, 61.74, 60.52, 60.36, 59.44, 58.0, 56.47, 58.05, 56.75, 55.96, 54.72, 52.91, 53.13, 52.64, 51.51, 51.17, 51.41, 48.99, 48.21, 48.26, 48.81, 49.33, 50.25, 50.53, 50.82, 49.56, 49.6, 49.5, 49.95, 49.86, 52.12, 51.42, 51.66, 51.31, 50.04, 48.57, 49.7, 48.11, 49.59, 47.76, 45.8, 47.4, 47.95, 47.6, 47.56, 46.83, 47.64, 47.14, 45.52, 45.45, 44.75, 46.46, 48.32, 48.47, 46.8, 49.18, 50.67, 51.6, 50.63, 50.39, 50.76, 51.16, 49.62, 49.74, 49.39, 50.86, 50.57, 47.91, 47.55, 48.13, 49.05, 49.08, 47.42, 48.37, 46.64, 45.79, 46.4, 48.55, 46.85, 48.03, 49.17, 47.73, 49.3, 48.6], "universe": [65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66, 68, 68, 68, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 70, 70, 70, 70, 70, 70, 72, 72, 72, 72, 74, 75, 75, 76, 77, 77, 78, 79, 79, 79, 80, 81, 81, 81, 81, 81, 81, 82, 82, 82, 85, 86, 88, 88, 90, 91, 91, 91, 91, 91, 92, 94, 94, 95, 95, 96, 96, 96, 96, 96, 96, 97, 99, 99, 99, 99, 99, 99, 99, 99, 99, 100, 100, 100, 100, 100, 100, 100, 100, 100], "strip_labels": ["2017-01", "2017-06", "2018-01", "2018-06", "2019-01", "2019-06", "2020-01", "2020-06", "2021-01", "2021-06", "2022-01", "2022-06", "2023-01", "2023-06", "2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-06"], "memberships": [["AKBNK", "GARAN", "TUPRS", "BIMAS", "EREGL", "SAHOL", "TCELL", "KCHOL", "ISCTR", "HALKB"], ["AKBNK", "GARAN", "TCELL", "TUPRS", "BIMAS", "EREGL", "ISCTR", "SAHOL", "KCHOL", "HALKB"], ["GARAN", "AKBNK", "TCELL", "EREGL", "TUPRS", "BIMAS", "THYAO", "ISCTR", "SAHOL", "KCHOL"], ["EREGL", "GARAN", "AKBNK", "TUPRS", "TCELL", "BIMAS", "THYAO", "ISCTR", "KCHOL", "SAHOL"], ["GARAN", "BIMAS", "AKBNK", "TUPRS", "TCELL", "EREGL", "KCHOL", "THYAO", "SAHOL", "ISCTR"], ["GARAN", "AKBNK", "BIMAS", "TUPRS", "TCELL", "EREGL", "KCHOL", "THYAO", "SAHOL", "ISCTR"], ["GARAN", "AKBNK", "BIMAS", "EREGL", "TCELL", "TUPRS", "KCHOL", "ISCTR", "SAHOL", "THYAO"], ["BIMAS", "GARAN", "TCELL", "AKBNK", "EREGL", "KCHOL", "TUPRS", "ASELS", "SAHOL", "THYAO"], ["BIMAS", "EREGL", "GARAN", "TCELL", "AKBNK", "KCHOL", "TUPRS", "SISE", "SAHOL", "ASELS"], ["EREGL", "BIMAS", "TCELL", "GARAN", "AKBNK", "KCHOL", "TUPRS", "SISE", "FROTO", "THYAO"], ["EREGL", "BIMAS", "GARAN", "TCELL", "KCHOL", "AKBNK", "TUPRS", "SISE", "THYAO", "FROTO"], ["EREGL", "BIMAS", "THYAO", "TUPRS", "SISE", "GARAN", "KCHOL", "AKBNK", "TCELL", "SAHOL"], ["THYAO", "TUPRS", "EREGL", "SISE", "SASA", "BIMAS", "KCHOL", "AKBNK", "TCELL", "SAHOL"], ["THYAO", "SASA", "TUPRS", "BIMAS", "KCHOL", "SISE", "EREGL", "AKBNK", "FROTO", "SAHOL"], ["THYAO", "BIMAS", "TUPRS", "AKBNK", "KCHOL", "ISCTR", "TCELL", "SAHOL", "SISE", "EREGL"], ["BIMAS", "THYAO", "AKBNK", "KCHOL", "TUPRS", "ISCTR", "TCELL", "YKBNK", "SAHOL", "EREGL"], ["BIMAS", "THYAO", "AKBNK", "TCELL", "TUPRS", "ISCTR", "KCHOL", "SAHOL", "ASELS", "YKBNK"], ["BIMAS", "THYAO", "AKBNK", "ASELS", "TUPRS", "TCELL", "ISCTR", "YKBNK", "KCHOL", "SAHOL"], ["ASELS", "BIMAS", "AKBNK", "TUPRS", "THYAO", "KLRHO", "KCHOL", "ISCTR", "YKBNK", "SAHOL"], ["ASELS", "DSTKF", "BIMAS", "THYAO", "TUPRS", "AKBNK", "EREGL", "YKBNK", "KCHOL", "ISCTR"]], "ever": ["AKBNK", "GARAN", "TUPRS", "BIMAS", "EREGL", "SAHOL", "TCELL", "KCHOL", "ISCTR", "HALKB", "THYAO", "ASELS", "SISE", "FROTO", "SASA", "YKBNK", "KLRHO", "DSTKF"], "names": {"AKBNK": "Akbank", "GARAN": "Garanti", "TUPRS": "T\u00fcpra\u015f", "BIMAS": "B\u0130M", "EREGL": "Ere\u011fli D. \u00c7elik", "SAHOL": "Sabanc\u0131 Holding", "TCELL": "Turkcell", "KCHOL": "Ko\u00e7 Holding", "ISCTR": "\u0130\u015f Bankas\u0131", "HALKB": "Halkbank", "THYAO": "T. Hava Yollar\u0131", "ASELS": "Aselsan", "SISE": "\u015ei\u015fecam", "FROTO": "Ford Otosan", "SASA": "Sasa Polyester", "YKBNK": "Yap\u0131 Kredi", "KLRHO": "Kiler Holding", "DSTKF": "Destek Faktoring"}};
+document.getElementById("asof").textContent = D.asof;
+const last = D.weights[D.weights.length - 1];
+document.getElementById("latest").innerHTML =
+  `${last.toFixed(1)}% <small>of top-50 free-float cap sits in the top 10</small>`;
+
+// ---- colour per company (stable hash over the 'ever' list) ----
+const PALETTE = ["#8fb8de","#eba7b8","#9fd39a","#f2c48c","#c3a6e0","#7fc9c0",
+  "#e59ac6","#cdd98a","#f0a08f","#8ad9c9","#d9bd8f","#a5b8e8","#f4b183",
+  "#c2c2c2","#a9dd9a","#a99ee0","#d1a884","#8fd0da","#e0aacb","#b8c98f"];
+const COL = {};
+D.ever.forEach((s, i) => { COL[s] = PALETTE[i % PALETTE.length]; });
+
+// ---- line chart: W50 primary, old W100 faint for contrast ----
+new Chart(document.getElementById("line"), {
+  type: "line",
+  data: { labels: D.months, datasets: [
+    { label: "Top 10 of top 50", data: D.weights,
+      borderColor: "#6a9fd0", backgroundColor: "rgba(106,159,208,.10)",
+      borderWidth: 2.5, pointRadius: 0, tension: .25, fill: true, order: 1 },
+    { label: "Top 10 of all members (survivorship-biased)", data: D.weights_of_total,
+      borderColor: "#b9b9b9", backgroundColor: "transparent",
+      borderWidth: 1.3, borderDash: [5, 4], pointRadius: 0, tension: .25, fill: false, order: 2 } ] },
+  options: { responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "index", intersect: false },
+    scales: { x: { ticks: { maxTicksLimit: 14, autoSkip: true } },
+      y: { title: { display: true, text: "% of free-float market cap" },
+           ticks: { callback: v => v + "%" } } },
+    plugins: { legend: { display: true, position: "top",
+        labels: { boxWidth: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } } } }
+});
+
+// ---- membership strip (semiannual snapshots: Jan + June each year) ----
+const strip = document.getElementById("strip");
+const fmt = ym => { const [y, m] = ym.split("-");
+  return (m === "01" ? "Jan " : "Jun ") + y; };
+let html = "";
+for (let r = 0; r < 10; r++) {
+  html += `<tr><th class="rank">${r + 1}</th>`;
+  for (let m = 0; m < D.memberships.length; m++) {
+    const s = D.memberships[m][r];
+    html += s ? `<td><div class="cell" style="background:${COL[s]}" title="${s} ${D.names[s]||""} — ${fmt(D.strip_labels[m])}">${s}</div></td>`
+              : `<td><div class="cell" style="background:#eee"></div></td>`;
+  }
+  html += "</tr>";
+}
+html += `<tr><th></th>`;
+for (let m = 0; m < D.strip_labels.length; m++) {
+  html += `<td><div class="mlab">${fmt(D.strip_labels[m])}</div></td>`;
+}
+html += "</tr>";
+strip.innerHTML = html;
+
+// ---- legend ----
+document.getElementById("legend").innerHTML = D.ever.map(s =>
+  `<span><span class="dot" style="background:${COL[s]}"></span>${s} <span style="color:#999">${D.names[s]||""}</span></span>`
+).join("");
+</script>
+</body>
+</html>

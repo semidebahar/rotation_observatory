@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rotation Observatory</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 24px auto;
+         max-width: 1100px; background: #fafafa; color: #1a1a1a; }
+  h1 { font-size: 22px; margin-bottom: 2px; }
+  .sub { color: #777; font-size: 13px; margin-bottom: 22px; }
+  .card { background: #fff; border: 1px solid #e3e3e3; border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 20px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  #rrgwrap { position: relative; height: 480px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 7px 10px; text-align: center; }
+  th { color: #666; font-weight: 600; }
+  td.sym { text-align: left; font-weight: 600; }
+  .legend span { display: inline-block; margin-right: 14px; font-size: 12px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+         margin-right: 4px; vertical-align: middle; }
+  .tl-cell { width: 22px; height: 22px; border-radius: 3px; }
+  .tl-date { font-size: 10px; color: #999; transform: rotate(-60deg);
+             white-space: nowrap; }
+  .note { font-size: 12px; color: #999; margin-top: 8px; }
+  /* Horizon badge. Every panel here measures a different lookback; without
+     saying which, two panels that legitimately disagree read as a bug. */
+  .horizon { display: inline-block; font-size: 11px; font-weight: 600;
+             color: #4a5b6b; background: #eef2f6; border: 1px solid #d8e0e8;
+             border-radius: 10px; padding: 2px 9px; margin-left: 8px;
+             vertical-align: middle; letter-spacing: .02em; }
+  .scrollx { overflow-x: auto; max-width: 100%; padding-bottom: 6px; }
+  .caveat { font-size: 12px; color: #8a6d3b; background: #fcf8e3;
+            border: 1px solid #faebcc; border-radius: 4px;
+            padding: 8px 10px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Rotation Observatory</h1>
+<div class="sub">Weekly bars vs SPY &middot; as of <span id="asof"></span> &middot; descriptive only &mdash; no signals</div>
+
+<div class="card">
+  <h2>Relative Rotation Graph <span class="horizon" id="rrg-horizon"></span></h2>
+  <div class="legend" id="legend"></div>
+  <div id="rrgwrap"><canvas id="rrg"></canvas></div>
+  <div class="note" id="rrg-note"></div>
+  <div class="caveat" id="rrg-caveat"></div>
+</div>
+
+<div class="card">
+  <h2>Market context</h2>
+  <div style="margin-bottom:10px; font-size:13px">
+    From <input type="date" id="d0"> to <input type="date" id="d1">
+    <button id="allbtn" style="margin-left:8px">All</button>
+    <span class="note" style="margin-left:10px">Both charts re-base to 100 at the window start.</span>
+  </div>
+  <div style="height:220px; position:relative"><canvas id="bench"></canvas></div>
+  <div style="height:260px; position:relative; margin-top:6px"><canvas id="ratio"></canvas></div>
+  <div style="height:220px; position:relative; margin-top:6px"><canvas id="spread"></canvas></div>
+  <div class="note">Top: benchmarks, indexed. Middle: sector &amp; factor / SPY ratio, indexed &mdash;
+    rising = outperforming the market (factors dashed). Bottom: cap-weight / equal-weight
+    sector spread &mdash; rising = mega-caps carrying the sector, not its average stock.
+    Click legend entries to toggle lines.</div>
+</div>
+
+<div class="card">
+  <h2>Relative performance vs SPY (%-points)
+    <span class="horizon" id="heat-horizon"></span></h2>
+  <table id="heat"></table>
+  <div class="note">Plain cumulative return minus SPY's over each lookback &mdash;
+    no normalisation, no smoothing. When this and the RRG disagree, they are
+    answering different questions over different horizons; this panel is the
+    literal one.</div>
+</div>
+
+<div class="card">
+  <h2>Quadrant timeline <span class="horizon" id="tl-horizon"></span></h2>
+  <!-- one 22px cell per week per symbol: a year of history is ~2,400px, so the
+       strip scrolls inside its own box rather than dragging the page sideways -->
+  <div class="scrollx"><table id="tl"></table></div>
+  <div class="legend" style="margin-top:10px">
+    <span><span class="dot" style="background:#2e9e4f"></span>Leading</span>
+    <span><span class="dot" style="background:#e0a800"></span>Weakening</span>
+    <span><span class="dot" style="background:#d9534f"></span>Lagging</span>
+    <span><span class="dot" style="background:#3b7dd8"></span>Improving</span>
+  </div>
+</div>
+
+<script>
+const D = __PAYLOAD__;
+document.getElementById("asof").textContent = D.asof;
+
+// ---- Horizon labels ----
+// Read from D.config so changing WINDOW in observatory.py can never leave the
+// stated horizon behind. The panels below measure different lookbacks; saying
+// which is the difference between "these disagree" and "one of these is wrong".
+const C = D.config, BM = C.benchmark;
+const wk = n => `${n} week${n === 1 ? "" : "s"}`;
+const wkAdj = n => `${n}-week`;                     // adjectival: "10-week window"
+document.getElementById("rrg-horizon").textContent =
+  `${wk(C.window)} normalised · trail ${wk(C.trail)}`;
+document.getElementById("tl-horizon").textContent =
+  `same ${wkAdj(C.window)} basis · last ${C.timeline_weeks} of ` +
+  `${C.bars} weeks`;
+document.getElementById("heat-horizon").textContent =
+  `${C.heatmap.join(" / ")} cumulative`;   // not `cols` — declared further down
+document.getElementById("rrg-note").innerHTML =
+  `X: RS-Ratio &mdash; the ${BM}-relative strength line as a % of its own ` +
+  `${wkAdj(C.window)} average (103 = 3% above it). ` +
+  `Y: RS-Momentum &mdash; the change in RS-Ratio over ${wk(C.mom_window)}. ` +
+  `Big dot = latest week.`;
+document.getElementById("rrg-caveat").innerHTML =
+  `<b>Read 100 as “in line with its own ${wkAdj(C.window)} average”, not ` +
+  `“in line with ${BM}”.</b> A sector can sit above 100 here while still ` +
+  `trailing ${BM} outright, which is why the table below can rank things ` +
+  `differently without either panel being wrong.<br><br>` +
+  `<b>The quadrants have not been leading indicators.</b> Over the ` +
+  `${C.bars} weeks measured here, sectors sitting in <i>Leading</i> went on to ` +
+  `<i>under</i>perform ${BM} over the next 13 weeks by about 0.7pp on average, ` +
+  `and <i>Lagging</i> ones outperformed by about the same — mild mean ` +
+  `reversion, the opposite of the way an RRG is usually read. The effect is ` +
+  `small and the sample is one 5-year stretch of seven symbols, so treat it as ` +
+  `a reason to keep this descriptive rather than as a contrarian signal.`;
+const SC = { XLK:"#7b3fb8", XLE:"#c26a1c", XLF:"#1c7ac2", XLV:"#c21c5e",
+             XLI:"#5e8a1c", XLY:"#1cb8a5", XLP:"#8a6d3b", XLU:"#666",
+             XLB:"#b81c1c", XLRE:"#3bb81c", XLC:"#1c3bb8",
+             IWD:"#0f766e", IWF:"#be185d", MTUM:"#ea580c" };
+
+// ---- RRG ----
+const quadBg = {
+  id: "quadBg",
+  beforeDraw(c) {
+    const {ctx, chartArea:a, scales:{x, y}} = c;
+    const cx = x.getPixelForValue(100), cy = y.getPixelForValue(100);
+    const paint = (x0, y0, x1, y1, col) => { ctx.fillStyle = col;
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0); };
+    paint(cx, a.top, a.right, cy, "rgba(46,158,79,.07)");    // leading
+    paint(cx, cy, a.right, a.bottom, "rgba(224,168,0,.07)"); // weakening
+    paint(a.left, cy, cx, a.bottom, "rgba(217,83,79,.07)");  // lagging
+    paint(a.left, a.top, cx, cy, "rgba(59,125,216,.07)");    // improving
+    ctx.strokeStyle = "#ccc";
+    ctx.beginPath(); ctx.moveTo(cx, a.top); ctx.lineTo(cx, a.bottom);
+    ctx.moveTo(a.left, cy); ctx.lineTo(a.right, cy); ctx.stroke();
+    ctx.fillStyle = "#aaa"; ctx.font = "11px sans-serif";
+    ctx.fillText("LEADING", a.right - 62, a.top + 14);
+    ctx.fillText("WEAKENING", a.right - 78, a.bottom - 8);
+    ctx.fillText("LAGGING", a.left + 6, a.bottom - 8);
+    ctx.fillText("IMPROVING", a.left + 6, a.top + 14);
+  }
+};
+const datasets = [];
+for (const [sym, t] of Object.entries(D.trails)) {
+  const pts = t.points.map(p => ({x: p.x, y: p.y, d: p.d}));
+  datasets.push({ label: sym, data: pts, showLine: true,
+    borderColor: SC[sym] || "#333", backgroundColor: SC[sym] || "#333",
+    borderWidth: 1.5, tension: .3,
+    pointRadius: pts.map((_, i) => i === pts.length - 1 ? 7 : 3) });
+}
+let lo = 96, hi = 104;
+for (const t of Object.values(D.trails)) for (const p of t.points) {
+  lo = Math.min(lo, p.x - .5, p.y - .5); hi = Math.max(hi, p.x + .5, p.y + .5);
+}
+new Chart(document.getElementById("rrg"), {
+  type: "scatter", data: {datasets},
+  options: { responsive: true, maintainAspectRatio: false, animation: false,
+    scales: { x: {min: lo, max: hi, title: {display: true, text: "RS-Ratio"}},
+              y: {min: lo, max: hi, title: {display: true, text: "RS-Momentum"}} },
+    plugins: { legend: {display: false},
+      tooltip: { callbacks: { label: c =>
+        `${c.dataset.label} ${c.raw.d}: ratio ${c.raw.x.toFixed(2)}, mom ${c.raw.y.toFixed(2)}` } } } },
+  plugins: [quadBg]
+});
+document.getElementById("legend").innerHTML = Object.entries(D.trails).map(
+  ([s, t]) => `<span><span class="dot" style="background:${SC[s] || "#333"}"></span>` +
+    `${s} ${t.name} &mdash; <b style="color:${D.qcolors[t.quadrant]}">${t.quadrant}</b></span>`).join("");
+
+// ---- Market context panel ----
+const S = D.series;
+const d0el = document.getElementById("d0"), d1el = document.getElementById("d1");
+d0el.min = d1el.min = S.dates[0];
+d0el.max = d1el.max = S.dates[S.dates.length - 1];
+d0el.value = S.dates[0]; d1el.value = S.dates[S.dates.length - 1];
+
+const BC = { SPY: "#333", QQQ: "#888" };
+const rebase = arr => {
+  const base = arr.find(v => v != null);
+  return arr.map(v => v == null ? null : 100 * v / base);
+};
+const windowIdx = () => {
+  let i0 = S.dates.findIndex(d => d >= d0el.value);
+  let i1 = S.dates.length - 1;
+  while (i1 > 0 && S.dates[i1] > d1el.value) i1--;
+  if (i0 < 0) i0 = 0;
+  if (i1 <= i0) i1 = Math.min(i0 + 1, S.dates.length - 1);
+  return [i0, i1];
+};
+const lineOpts = title => ({ responsive: true, maintainAspectRatio: false,
+  animation: false, interaction: {mode: "index", intersect: false},
+  scales: { x: {ticks: {maxTicksLimit: 12}}, y: {title: {display: true, text: title}} },
+  plugins: { legend: {display: true, position: "top", labels: {boxWidth: 12, font: {size: 11}}},
+    tooltip: {callbacks: {label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1)}`}} } });
+
+const benchChart = new Chart(document.getElementById("bench"), {
+  type: "line", data: {labels: [], datasets: []}, options: lineOpts("Index (100 = window start)")});
+const ratioChart = new Chart(document.getElementById("ratio"), {
+  type: "line", data: {labels: [], datasets: []}, options: lineOpts("Sector/SPY (100 = window start)")});
+const spreadChart = new Chart(document.getElementById("spread"), {
+  type: "line", data: {labels: [], datasets: []}, options: lineOpts("Cap/EW spread (100 = window start)")});
+
+function redraw() {
+  const [i0, i1] = windowIdx();
+  const labels = S.dates.slice(i0, i1 + 1);
+  benchChart.data.labels = labels;
+  benchChart.data.datasets = S.benchmarks.map(b => ({
+    label: b, data: rebase(S.closes[b].slice(i0, i1 + 1)),
+    borderColor: BC[b] || "#333", backgroundColor: BC[b] || "#333",
+    borderWidth: b === "SPY" ? 2 : 1.5, pointRadius: 0, tension: .2,
+    borderDash: b === "QQQ" ? [5, 3] : [] }));
+  ratioChart.data.labels = labels;
+  ratioChart.data.datasets = Object.keys(D.trails).map(sym => ({
+    label: `${sym} ${D.names[sym] || ""}`,
+    data: rebase(S.closes[sym].slice(i0, i1 + 1)
+      .map((v, k) => v == null ? null : v / S.closes.SPY[i0 + k])),
+    borderColor: SC[sym] || "#333", backgroundColor: SC[sym] || "#333",
+    borderWidth: 1.8, pointRadius: 0, tension: .2,
+    borderDash: (S.factors || []).includes(sym) ? [5, 3] : [] }));
+  spreadChart.data.labels = labels;
+  spreadChart.data.datasets = Object.entries(S.ewpairs || {}).map(([cap, ew]) => ({
+    label: `${cap}/${ew}`,
+    data: rebase(S.closes[cap].slice(i0, i1 + 1)
+      .map((v, k) => v == null || S.closes[ew][i0 + k] == null
+        ? null : v / S.closes[ew][i0 + k])),
+    borderColor: SC[cap] || "#333", backgroundColor: SC[cap] || "#333",
+    borderWidth: 1.8, pointRadius: 0, tension: .2 }));
+  benchChart.update(); ratioChart.update(); spreadChart.update();
+}
+d0el.onchange = d1el.onchange = redraw;
+document.getElementById("allbtn").onclick = () => {
+  d0el.value = S.dates[0]; d1el.value = S.dates[S.dates.length - 1]; redraw(); };
+redraw();
+
+// ---- Heatmap ----
+const heat = document.getElementById("heat");
+const cols = D.config.heatmap;
+const cellCol = v => v == null ? "#eee" :
+  v >= 0 ? `rgba(46,158,79,${Math.min(.85, .12 + Math.abs(v) / 8)})`
+         : `rgba(217,83,79,${Math.min(.85, .12 + Math.abs(v) / 8)})`;
+heat.innerHTML = "<tr><th style='text-align:left'>Sector</th>" +
+  cols.map(c => `<th>${c}</th>`).join("") + "</tr>" +
+  D.heatmap.map(r => `<tr><td class="sym">${r.symbol} <span style="color:#888;font-weight:400">${r.name}</span></td>` +
+    cols.map(c => `<td style="background:${cellCol(r[c])}">${r[c] == null ? "-" : r[c].toFixed(1)}</td>`).join("") +
+    "</tr>").join("");
+
+// ---- Timeline ----
+const tl = document.getElementById("tl");
+tl.innerHTML = D.timeline.rows.map(r =>
+  `<tr><td class="sym">${r.symbol}</td>` + r.cells.map(q =>
+    `<td><div class="tl-cell" style="background:${q ? D.qcolors[q] : "#eee"}" title="${q || ""}"></div></td>`
+  ).join("") + "</tr>").join("") +
+  `<tr><td></td>` + D.timeline.dates.map(d =>
+    `<td><div class="tl-date">${d.slice(5)}</div></td>`).join("") + "</tr>";
+</script>
+</body>
+</html>

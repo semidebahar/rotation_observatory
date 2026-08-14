@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BIST Concentration — Top 10 of Top 50</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 24px auto;
+         max-width: 1100px; background: #fafafa; color: #1a1a1a; }
+  h1 { font-size: 22px; margin-bottom: 2px; }
+  .sub { color: #777; font-size: 13px; margin-bottom: 22px; }
+  .card { background: #fff; border: 1px solid #e3e3e3; border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 20px; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .note { font-size: 12px; color: #999; margin-top: 8px; }
+  .big { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
+  .big small { font-size: 14px; color: #888; font-weight: 400; letter-spacing: 0; }
+  .strip-wrap { overflow-x: auto; padding-bottom: 6px; }
+  table.strip { border-collapse: separate; border-spacing: 7px 5px;
+         font-size: 11px; table-layout: fixed; }
+  table.strip td, table.strip th { padding: 0; text-align: center; }
+  table.strip td { width: 58px; }
+  table.strip th.rank { width: 22px; text-align: right; padding-right: 6px;
+         color: #999; font-weight: 600; white-space: nowrap; }
+  .cell { width: 58px; height: 24px; line-height: 24px; font-size: 11px;
+          font-weight: 600; color: #3a3a3a; border-radius: 5px; overflow: hidden; }
+  .mlab { font-size: 11px; color: #777; white-space: nowrap; padding-top: 4px;
+          font-weight: 600; }
+  .legend span { display: inline-block; margin-right: 12px; font-size: 11px;
+          margin-top: 4px; white-space: nowrap; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+         margin-right: 4px; vertical-align: middle; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; color: #2f6a4f;
+         background: #e6f2ec; border: 1px solid #bfe0cf; border-radius: 5px;
+         padding: 2px 8px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<h1>Borsa İstanbul — Top 10 as a Share of the Top 50</h1>
+<div class="sub">Free-float market cap of the 10 largest &divide; the 50 largest, recomputed each
+  month &middot; survivorship-robust variant &middot; as of <span id="asof"></span></div>
+
+<div class="card">
+  <span class="badge">Fixed top-50 denominator — comparable across the whole 10y window</span>
+  <h2>Top-10-of-top-50 concentration</h2>
+  <div class="big" id="latest"></div>
+  <div style="height:300px; position:relative; margin-top:10px"><canvas id="line"></canvas></div>
+  <div class="note">Both lines are cross-sectional each month by free-float market cap. <b>Blue</b> =
+    top 10 &divide; top 50 (constant footing). <b>Grey dashed</b> = top 10 &divide; <i>all</i> members.
+    They nearly coincide in 2016–19 — when only ~65 names are observable, the top 50 is ~99% of visible
+    cap — and separate to ~7pp by 2025 as the small-cap tail (ranks 51–100) fills in. <b>That gap is the
+    tail's weight, not survivorship.</b> Note the blue line still peaks near 62% in 2016–19 and eases to
+    ~55%: fixing the denominator did <i>not</i> erase the early peak, so that concentration was largely
+    real — not a denominator-size artifact.</div>
+</div>
+
+<div class="card">
+  <h2>Who sat in the top 10</h2>
+  <div class="note" style="margin-top:0">Two snapshots a year (January &amp; end of H1); rows are
+    rank 1 (top) to 10. Colour = company. The banks &rarr; defence/aviation/industrials shift is
+    the story.</div>
+  <div class="strip-wrap"><table class="strip" id="strip"></table></div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="card">
+  <h2>Method &amp; caveats</h2>
+  <div class="note" style="margin-top:0; line-height:1.6">
+    <b>Weighting basis:</b> free-float market cap (İş Yatırım <code>HAO_PD</code>), the basis BIST
+    index-weights on — not full market cap.<br>
+    <b>Fixed top-50 denominator (the point of this variant):</b> the denominator is the 50 largest
+    members each date, not "all available members". Over 10y the observable universe grows from
+    ~65 to 100 (today's XU100 applied historically), and a variable-size denominator mechanically
+    inflates the top-10 share in the thin early years. A constant top-50 puts every date on identical
+    footing, so the trend is comparable end-to-end.<br>
+    <b>Why 50, not 65 (the min universe):</b> the top 50 keeps a ~15-name bench in the worst year.
+    When a name that truly belonged in the top 50 is one of the survivorship-missing tickers, its slot
+    is filled by the next survivor down — <i>substitution</i> (small, second-order error) rather than
+    <i>omission</i> (large, first-order). At N=65 the bench is zero and omission bias returns exactly
+    where it hurts. Residual denominator error is bounded, one-sided, and decays to ~0 by ~2021.<br>
+    <b>Numerator is essentially exact in every year:</b> 2016's top-10 names (GARAN, AKBNK, ISCTR,
+    TUPRS, THYAO, EREGL, KCHOL…) are all still in today's list — megacaps persist, so the top of the
+    distribution is fully observed across the window.<br>
+    <b>What the empirics actually showed (correcting the prior story):</b> fixing the denominator at
+    top-50 did <i>not</i> flatten the early peak — W50 still reads ~62% in 2016–19. So that early
+    concentration was <b>largely real</b>, not a survivorship/denominator-size artifact, as first
+    feared. The extra steepness of the old "% of total" chart (which fell from ~61% to ~48%) is mostly
+    the small-cap <b>tail growing</b> — more listings and the 2021–22 retail episode diluting the
+    total — not core de-concentration. Within the core, the fade is milder: ~62% → ~55%.<br>
+    <b>Where the real survivorship bias sits:</b> in the ~35 names missing from 2016 (a tail we cannot
+    observe). It pushes the old of-total reading <i>up</i> in early years, but it is <b>not</b> the blue–grey
+    gap on the chart. Backing it out: true 2016 of-total ≈ W50 × ρ_recent ≈ 0.62 × 0.88 ≈ <b>55%</b>,
+    versus the naive 61% — i.e. the old chart's 2016 point was ~6pp too high.<br>
+    <b>Definitional caveat (not error):</b> W50 is blind to ranks 51–100 (~12% of total cap today). Read
+    it as concentration <i>within the large/mid-cap core</i>. Level note: W50 = W(of-total) / ρ, ρ ≈ 0.88
+    today, so the same object reads a few points higher here (latest 55% vs 48%).<br>
+    <b>Deferred:</b> earnings-share version (TMS-29 inflation accounting break); full-cap toggle; HHI;
+    banks-vs-rest split.
+  </div>
+</div>
+
+<script>
+const D = __PAYLOAD__;
+document.getElementById("asof").textContent = D.asof;
+const last = D.weights[D.weights.length - 1];
+document.getElementById("latest").innerHTML =
+  `${last.toFixed(1)}% <small>of top-50 free-float cap sits in the top 10</small>`;
+
+// ---- colour per company (stable hash over the 'ever' list) ----
+const PALETTE = ["#8fb8de","#eba7b8","#9fd39a","#f2c48c","#c3a6e0","#7fc9c0",
+  "#e59ac6","#cdd98a","#f0a08f","#8ad9c9","#d9bd8f","#a5b8e8","#f4b183",
+  "#c2c2c2","#a9dd9a","#a99ee0","#d1a884","#8fd0da","#e0aacb","#b8c98f"];
+const COL = {};
+D.ever.forEach((s, i) => { COL[s] = PALETTE[i % PALETTE.length]; });
+
+// ---- line chart: W50 primary, old W100 faint for contrast ----
+new Chart(document.getElementById("line"), {
+  type: "line",
+  data: { labels: D.months, datasets: [
+    { label: "Top 10 of top 50", data: D.weights,
+      borderColor: "#6a9fd0", backgroundColor: "rgba(106,159,208,.10)",
+      borderWidth: 2.5, pointRadius: 0, tension: .25, fill: true, order: 1 },
+    { label: "Top 10 of all members (survivorship-biased)", data: D.weights_of_total,
+      borderColor: "#b9b9b9", backgroundColor: "transparent",
+      borderWidth: 1.3, borderDash: [5, 4], pointRadius: 0, tension: .25, fill: false, order: 2 } ] },
+  options: { responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "index", intersect: false },
+    scales: { x: { ticks: { maxTicksLimit: 14, autoSkip: true } },
+      y: { title: { display: true, text: "% of free-float market cap" },
+           ticks: { callback: v => v + "%" } } },
+    plugins: { legend: { display: true, position: "top",
+        labels: { boxWidth: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } } } }
+});
+
+// ---- membership strip (semiannual snapshots: Jan + June each year) ----
+const strip = document.getElementById("strip");
+const fmt = ym => { const [y, m] = ym.split("-");
+  return (m === "01" ? "Jan " : "Jun ") + y; };
+let html = "";
+for (let r = 0; r < 10; r++) {
+  html += `<tr><th class="rank">${r + 1}</th>`;
+  for (let m = 0; m < D.memberships.length; m++) {
+    const s = D.memberships[m][r];
+    html += s ? `<td><div class="cell" style="background:${COL[s]}" title="${s} ${D.names[s]||""} — ${fmt(D.strip_labels[m])}">${s}</div></td>`
+              : `<td><div class="cell" style="background:#eee"></div></td>`;
+  }
+  html += "</tr>";
+}
+html += `<tr><th></th>`;
+for (let m = 0; m < D.strip_labels.length; m++) {
+  html += `<td><div class="mlab">${fmt(D.strip_labels[m])}</div></td>`;
+}
+html += "</tr>";
+strip.innerHTML = html;
+
+// ---- legend ----
+document.getElementById("legend").innerHTML = D.ever.map(s =>
+  `<span><span class="dot" style="background:${COL[s]}"></span>${s} <span style="color:#999">${D.names[s]||""}</span></span>`
+).join("");
+</script>
+</body>
+</html>

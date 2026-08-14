@@ -1,0 +1,5 @@
+# Runtime for the weekly rebuild (GitHub Actions). Render serves the committed
+# HTML and installs nothing.
+yfinance>=0.2
+pandas>=2.0
+numpy>=1.24
