@@ -19,6 +19,12 @@
   th { color: #666; font-weight: 600; }
   td.sym { text-align: left; font-weight: 600; }
   .legend span { display: inline-block; margin-right: 14px; font-size: 12px; }
+  .legend .lg { cursor: pointer; user-select: none; padding: 1px 3px;
+                border-radius: 3px; }
+  .legend .lg:hover { background: #eef2f6; }
+  .legend .lg.off { opacity: .32; }
+  .legend .lg.off .dot { background: #bbb !important; }
+  .legend .lg-all { font-weight: 600; color: #4a5b6b; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
          margin-right: 4px; vertical-align: middle; }
   .tl-cell { width: 22px; height: 22px; border-radius: 3px; }
@@ -110,7 +116,9 @@ document.getElementById("rrg-note").innerHTML =
   `X: RS-Ratio &mdash; the ${BM}-relative strength line as a % of its own ` +
   `${wkAdj(C.window)} average (103 = 3% above it). ` +
   `Y: RS-Momentum &mdash; the change in RS-Ratio over ${wk(C.mom_window)}. ` +
-  `Big dot = latest week.`;
+  `Big dot = latest week. <b>Click a legend entry to hide it</b>, double-click ` +
+  `to isolate it, “reset” to bring everything back &mdash; the axes rescale to ` +
+  `whatever is left, so hiding an outlier spreads the rest out.`;
 document.getElementById("rrg-caveat").innerHTML =
   `<b>Read 100 as “in line with its own ${wkAdj(C.window)} average”, not ` +
   `“in line with ${BM}”.</b> A sector can sit above 100 here while still ` +
@@ -158,23 +166,71 @@ for (const [sym, t] of Object.entries(D.trails)) {
     borderWidth: 1.5, tension: .3,
     pointRadius: pts.map((_, i) => i === pts.length - 1 ? 7 : 3) });
 }
-let lo = 96, hi = 104;
-for (const t of Object.values(D.trails)) for (const p of t.points) {
-  lo = Math.min(lo, p.x - .5, p.y - .5); hi = Math.max(hi, p.x + .5, p.y + .5);
+// Axis range over the VISIBLE trails only. Both axes share one range on purpose
+// — a trail's rotation only reads correctly if x and y are scaled alike — which
+// means one wild symbol stretches the whole picture and squashes everyone else.
+// Rather than clip it, recompute on every toggle: hide the outlier and the rest
+// of the field expands into the space it was using.
+function rangeOf(visibleSyms) {
+  let lo = 96, hi = 104;
+  for (const s of visibleSyms) for (const p of D.trails[s].points) {
+    lo = Math.min(lo, p.x - .5, p.y - .5); hi = Math.max(hi, p.x + .5, p.y + .5);
+  }
+  return [lo, hi];
 }
-new Chart(document.getElementById("rrg"), {
+const SYMS = Object.keys(D.trails);
+const [lo0, hi0] = rangeOf(SYMS);
+const rrgChart = new Chart(document.getElementById("rrg"), {
   type: "scatter", data: {datasets},
   options: { responsive: true, maintainAspectRatio: false, animation: false,
-    scales: { x: {min: lo, max: hi, title: {display: true, text: "RS-Ratio"}},
-              y: {min: lo, max: hi, title: {display: true, text: "RS-Momentum"}} },
+    scales: { x: {min: lo0, max: hi0, title: {display: true, text: "RS-Ratio"}},
+              y: {min: lo0, max: hi0, title: {display: true, text: "RS-Momentum"}} },
     plugins: { legend: {display: false},
       tooltip: { callbacks: { label: c =>
         `${c.dataset.label} ${c.raw.d}: ratio ${c.raw.x.toFixed(2)}, mom ${c.raw.y.toFixed(2)}` } } } },
   plugins: [quadBg]
 });
-document.getElementById("legend").innerHTML = Object.entries(D.trails).map(
-  ([s, t]) => `<span><span class="dot" style="background:${SC[s] || "#333"}"></span>` +
-    `${s} ${t.name} &mdash; <b style="color:${D.qcolors[t.quadrant]}">${t.quadrant}</b></span>`).join("");
+
+// ---- Clickable legend: click to hide/show, double-click to isolate ----
+const legendEl = document.getElementById("legend");
+function renderLegend() {
+  legendEl.innerHTML = SYMS.map((s, i) => {
+    const t = D.trails[s], off = !rrgChart.isDatasetVisible(i);
+    return `<span class="lg${off ? " off" : ""}" data-i="${i}" title="Click to `
+      + `${off ? "show" : "hide"} · double-click to isolate">`
+      + `<span class="dot" style="background:${SC[s] || "#333"}"></span>`
+      + `${s} ${t.name} &mdash; <b style="color:${D.qcolors[t.quadrant]}">`
+      + `${t.quadrant}</b></span>`;
+  }).join("") + `<span class="lg lg-all" data-all="1">reset</span>`;
+}
+function refresh() {
+  const vis = SYMS.filter((_, i) => rrgChart.isDatasetVisible(i));
+  const [lo, hi] = rangeOf(vis.length ? vis : SYMS);
+  rrgChart.options.scales.x.min = rrgChart.options.scales.y.min = lo;
+  rrgChart.options.scales.x.max = rrgChart.options.scales.y.max = hi;
+  rrgChart.update();
+  renderLegend();
+}
+legendEl.addEventListener("click", e => {
+  const el = e.target.closest(".lg");
+  if (!el) return;
+  if (el.dataset.all) { SYMS.forEach((_, i) => rrgChart.setDatasetVisibility(i, true)); }
+  else {
+    const i = +el.dataset.i;
+    rrgChart.setDatasetVisibility(i, !rrgChart.isDatasetVisible(i));
+  }
+  refresh();
+});
+legendEl.addEventListener("dblclick", e => {
+  const el = e.target.closest(".lg");
+  if (!el || el.dataset.all) return;
+  const i = +el.dataset.i;
+  // isolate, unless it is already the only one showing — then restore all
+  const onlyThis = SYMS.every((_, j) => rrgChart.isDatasetVisible(j) === (j === i));
+  SYMS.forEach((_, j) => rrgChart.setDatasetVisibility(j, onlyThis || j === i));
+  refresh();
+});
+renderLegend();
 
 // ---- Market context panel ----
 const S = D.series;
