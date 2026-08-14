@@ -10,6 +10,10 @@
 # The weekly refresh happens in GitHub Actions (.github/workflows/refresh.yml),
 # which regenerates the page and pushes; Render auto-deploys on that push. Doing
 # it that way avoids a Render Cron Job, which is a paid service type.
+#
+# If Render rejects `runtime: static` when reading this blueprint, it is running
+# the older schema — rename that one key to `env: static` and re-sync. Nothing
+# else changes.
 services:
   - type: web
     name: rotation-observatory
